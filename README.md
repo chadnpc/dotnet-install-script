@@ -3,7 +3,7 @@
 A custom cross-platform compatible PowerShell script to install the .NET SDK and Runtime.
 This script is intended primarily for Continuous Integration (CI) scenarios where you need to install without user interaction, without admin rights, and where it doesn't need to persist.
 
-## Installation / Usage
+## Usage
 
 ```PowerShell
 # To install the script as a module/script
@@ -23,6 +23,12 @@ Install-Script -Name Install-Dotnet -Scope CurrentUser -Force
 - `-Architecture` (Default: `<auto>`): System architecture (`x64`, `x86`, `arm64`, `arm`).
 - `-DryRun`: Displays the repeatable command line to be used instead of performing the installation.
 - `-NoPath`: Do not add the installation directory to the current process's `PATH`.
+
+For more help run
+
+```PowerShell
+Get-Help Install-Dotnet.ps1 -Full
+```
 
 ## Examples
 
