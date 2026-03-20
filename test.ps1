@@ -17,7 +17,7 @@ if (-not (Get-Module -ListAvailable Pester)) {
   Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser
 }
 
-Import-Module Pester
+Import-Module Pester -Verbose:$false
 
 Write-Host "Running Pester tests from '$TestsPath'..." -ForegroundColor Cyan
 
@@ -28,5 +28,5 @@ if ($TestResults.FailedCount -gt 0) {
   exit 1
 }
 
-Write-Host "All tests passed successfully!" -ForegroundColor Green
+Write-Host "All tests ran successfully!" -ForegroundColor Green
 exit 0
