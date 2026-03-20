@@ -19,7 +19,7 @@
 
 .ICONURI
 
-.EXTERNALMODULEDEPENDENCIES
+.EXTERNALMODULEDEPENDENCIES clihelper.logger, clihelper.env
 
 .REQUIREDSCRIPTS
 
@@ -183,8 +183,20 @@ begin {
   $logger.AddLogAppender([ConsoleAppender]@{ })
   $logger.set_default()
 
-  enum ArchitectureType { Auto; Amd64; X64; X86; Arm64; Arm }
-  enum RuntimeProduct { DotNet; AspNetCore; WindowsDesktop; Sdk }
+  enum ArchitectureType {
+    Auto
+    Amd64
+    X64
+    X86
+    Arm64
+    Arm
+  }
+  enum RuntimeProduct {
+    DotNet
+    AspNetCore
+    WindowsDesktop
+    Sdk
+  }
 
   class DotnetInstallException : System.Exception {
     DotnetInstallException([string]$message) : base($message) {}
