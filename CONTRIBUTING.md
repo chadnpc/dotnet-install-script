@@ -13,8 +13,14 @@ We welcome contributions to the `dotnet-install-script` project!
 2. **Environment Setup (Optional):**
    ```PowerShell
    cp .env.example .env
+   
+   $requiredmodules = @(
+    'Pester',
+    'clihelper.env',
+    'clihelper.logger'
+   )
    ```
-
+  
 ## Testing
 
 Before submitting your changes, ensure that all tests pass. We use [Pester](https://pester.dev/) for testing.
