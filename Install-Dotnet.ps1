@@ -168,9 +168,9 @@ begin {
   $ProgressPreference = "SilentlyContinue"
 
 
-  #Requires -RunAsAdministrator
-  #Requires -Modules cliHelper.logger
-  #Requires -Psedition Core
+  # Modules and edition requirements not actually needed  for now
+  #   Requires -Modules cliHelper.logger
+  # Requires -RunAsAdministrator was removed because it blocked non-admin execution.
 
   if ($Help) {
     Get-Help $PSCommandPath -Examples
