@@ -30,7 +30,11 @@ Before submitting your changes, ensure that all tests pass. We use [Pester](http
 
 ## Publishing (Maintainers Only)
 
+Add your real api key in `.env` file
+
 To publish a new version of the module:
+
 ```PowerShell
-Publish-Module -Path BuildOutput/dotnetInstall.xconvert/0.1.3 -NuGetApiKey $env:NUGET_API_KEY
+Read-Env .env | Set-Env
+Publish-Script -Path .\Install-Dotnet.ps1 -NuGetApiKey $env:NUGET_API_KEY
 ```
