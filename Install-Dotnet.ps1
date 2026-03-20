@@ -308,7 +308,7 @@ begin {
           Write-LogEntry -Level Info -Message ("Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process.")
           $env:path = $SuffixedBinPath + $env:path
         } else {
-          Write-LogEntry -Level Debug -Message ("Current process PATH already contains `"$BinPath`"")
+          Write-LogEntry -Level Info -Message ("Current process PATH already contains `"$BinPath`"")
         }
       } else {
         Write-LogEntry -Level Info -Message ("Binaries of dotnet can be found in $BinPath")
@@ -364,7 +364,7 @@ begin {
               }
             } catch {
               $ProxyAddress = $null
-              Write-LogEntry -Level Debug -Message ("Exception ignored: $_.Exception.Message - moving forward...")
+              Write-LogEntry -Level Debug -Message ("Exception ignored: $($_.Exception.Message) - moving forward...")
             }
           }
 
@@ -423,7 +423,7 @@ begin {
           return $fileSize
         }
       } catch {
-        Write-LogEntry -Level Debug -Message ("Content-Length header was not extracted for $zipUri.")
+        Write-LogEntry -Level Warn -Message ("Content-Length header was not extracted for $zipUri.")
       }
       return $null
     }
@@ -495,7 +495,7 @@ begin {
     static [void] PrepareInstallDirectory([string]$InstallRoot) {
       $diskSpaceWarning = "Failed to check the disk space. Installation will continue, but it may fail if you do not have enough disk space."
       if ($(Get-Variable PSVersionTable).Value.PSVersion.Major -lt 7) {
-        Write-LogEntry -Level Debug -Message ($diskSpaceWarning)
+        Write-LogEntry -Level Warn -Message ($diskSpaceWarning)
         return
       }
 
@@ -833,7 +833,7 @@ begin {
     }
 
     static [void] Run([InstallContext]$Ctx) {
-      Write-LogEntry -Level Debug -Message ("Note that the intended use of this script is for Continuous Integration (CI) scenarios...")
+      Write-LogEntry -Level Info -Message ("Note that the intended use of this script is for Continuous Integration (CI) scenarios...")
       if ($Ctx.SharedRuntime -and (!$Ctx.Runtime)) { $Ctx.Runtime = "dotnet" }
       $OverrideNonVersionedFiles = !$Ctx.SkipNonVersionedFiles
 
@@ -844,7 +844,7 @@ begin {
         Write-LogEntry -Level Error -Message ("The current user doesn't have write access to the installation root '$($Ctx.InstallRoot)'")
         throw [DotnetInstallException]::new("Access Denied")
       }
-      Write-LogEntry -Level Debug -Message ("InstallRoot: $($Ctx.InstallRoot)")
+      Write-LogEntry -Level Info -Message ("InstallRoot: $($Ctx.InstallRoot)")
 
       if ($Ctx.Version.ToLowerInvariant() -ne "latest" -and ![string]::IsNullOrEmpty($Ctx.Quality)) {
         throw [DotnetInstallException]::new("Quality and Version options are not allowed to be specified simultaneously.")
@@ -929,7 +929,7 @@ begin {
       $ErrorMessages = @()
 
       foreach ($linkInfo in $DownloadLinks) {
-        Write-LogEntry -Level Debug -Message ("Downloading `"$($linkInfo.Type)`" link $($linkInfo.DownloadLink)")
+        Write-LogEntry -Level Info -Message ("Downloading `"$($linkInfo.Type)`" link $($linkInfo.DownloadLink)")
         try {
           [PerfHelper]::MeasureAction("Package download", { [HttpUtils]::DownloadFile($linkInfo.DownloadLink, $Ctx.ZipPath, $Ctx) })
           $DownloadSucceeded = $true
@@ -938,7 +938,7 @@ begin {
         } catch {
           $StatusCode = if ($_.Exception -is [DownloadException]) { $_.Exception.StatusCode } else { 0 }
           $ErrMsg = if ($_.Exception -is [DownloadException]) { $_.Exception.ErrorMessage } else { $_.Exception.Message }
-          Write-LogEntry -Level Debug -Message ("Download failed. Status: $StatusCode. Msg: $ErrMsg")
+          Write-LogEntry -Level Error -Message ("Download failed. Status: $StatusCode. Msg: $ErrMsg")
           $ErrorMessages += "Downloading from `"$($linkInfo.Type)`" link failed:`nUri: $($linkInfo.DownloadLink)`nStatusCode: $StatusCode`nError: $ErrMsg"
           [FileSystemUtils]::SafeRemoveFile($Ctx.ZipPath)
         }
