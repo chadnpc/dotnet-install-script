@@ -31,7 +31,14 @@ begin {
 process {
   Write-Host "Running Pester tests from '$TestsPath'..." -ForegroundColor Cyan
 
-  $TestResults = Invoke-Pester -Path $TestsPath -OutputFormat NUnitXml -OutputFile ([IO.Path]::Combine($TestsPath, "results.xml")) -PassThru
+  $config = [PesterConfiguration]::Default
+  $config.Run.Path = $TestsPath
+  $config.Run.PassThru = $true
+  $config.TestResult.Enabled = $true
+  $config.TestResult.OutputPath = [IO.Path]::Combine($TestsPath, "results.xml")
+  $config.TestResult.OutputFormat = "NUnitXml"
+
+  $TestResults = Invoke-Pester -Configuration $config
 
   if ($TestResults.FailedCount -gt 0) {
     Write-Error "Tests failed. Look at results.xml for more details."
