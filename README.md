@@ -27,7 +27,7 @@ Install-Script -Name Install-Dotnet -Scope CurrentUser -Force
 For more help run
 
 ```PowerShell
-Get-Help Install-Dotnet.ps1 -Full
+Get-Help .\Install-Dotnet.ps1 -Full
 ```
 
 ## Examples
