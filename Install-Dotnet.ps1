@@ -290,9 +290,9 @@ begin {
 
     static [void] PrependToPath([string]$InstallRoot, [bool]$NoPath) {
       $BinPath = [SystemUtils]::GetAbsolutePath([System.IO.Path]::Combine($InstallRoot, ""))
-      if (-not $NoPath) {
+      if (!$NoPath) {
         $SuffixedBinPath = "$BinPath;"
-        if (-not $env:path.Contains($SuffixedBinPath)) {
+        if (!$env:path.Contains($SuffixedBinPath)) {
           Write-LogEntry -Level Info -Message ("Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process.")
           $env:path = $SuffixedBinPath + $env:path
         } else {
@@ -314,17 +314,17 @@ begin {
           $result = & $ScriptBlock
         } catch {
           $Attempts++
-          if (($Attempts -lt $MaxAttempts) -and -not $cancellationToken.IsCancellationRequested) {
+          if (($Attempts -lt $MaxAttempts) -and !$cancellationToken.IsCancellationRequested) {
             Start-Sleep -Seconds $SecondsBetweenAttempts
           } else {
             $elapsedTime = (Get-Date) - $startTime
-            if (($elapsedTime.TotalSeconds - $DownloadTimeout) -gt 0 -and -not $cancellationToken.IsCancellationRequested) {
+            if (($elapsedTime.TotalSeconds - $DownloadTimeout) -gt 0 -and !$cancellationToken.IsCancellationRequested) {
               throw [System.TimeoutException]::new("Failed to reach the server: connection timeout: default timeout is $DownloadTimeout second(s)", $_.Exception)
             }
             throw $_.Exception
           }
         }
-      } while (($Attempts -lt $MaxAttempts) -and -not $cancellationToken.IsCancellationRequested)
+      } while (($Attempts -lt $MaxAttempts) -and !$cancellationToken.IsCancellationRequested)
 
       return $result
     }
@@ -339,10 +339,10 @@ begin {
 
           $ProxyAddress = $Ctx.ProxyAddress
           $ProxyUseDefaultCredentials = $Ctx.ProxyUseDefaultCredentials
-          if (-not $ProxyAddress) {
+          if (!$ProxyAddress) {
             try {
               $DefaultProxy = [System.Net.WebRequest]::DefaultWebProxy;
-              if ($DefaultProxy -and (-not $DefaultProxy.IsBypassed($Uri))) {
+              if ($DefaultProxy -and (!$DefaultProxy.IsBypassed($Uri))) {
                 if ($null -ne $DefaultProxy.GetProxy($Uri)) {
                   $ProxyAddress = $DefaultProxy.GetProxy($Uri).OriginalString
                 } else {
@@ -374,7 +374,7 @@ begin {
           $Task = $HttpClient.GetAsync($UriWithCredential, $completionOption).ConfigureAwait($false)
           $Response = $Task.GetAwaiter().GetResult()
 
-          if (($null -eq $Response) -or ((-not $HeaderOnly) -and (-not ($Response.IsSuccessStatusCode)))) {
+          if (($null -eq $Response) -or ((!$HeaderOnly) -and (!($Response.IsSuccessStatusCode)))) {
             $StatusCode = if ($null -ne $Response) { [int]$Response.StatusCode } else { 0 }
             $ErrMsg = "Unable to download $Uri. Returned HTTP status code: $StatusCode"
             if ($StatusCode -eq 404) { $cts.Cancel() }
@@ -515,7 +515,7 @@ begin {
         $dir = [FileSystemUtils]::GetPathPrefixWithVersion($entry.FullName)
         if ($null -ne $dir) {
           $path = [SystemUtils]::GetAbsolutePath((Join-Path -Path $OutPath -ChildPath $dir))
-          if (-not (Test-Path $path -PathType Container)) { $ret += $dir }
+          if (!(Test-Path $path -PathType Container)) { $ret += $dir }
         }
       }
       $ret = $ret | Sort-Object | Get-Unique
@@ -535,8 +535,8 @@ begin {
           if (($null -eq $PathWithVersion) -or ($DirectoriesToUnpack -contains $PathWithVersion)) {
             $DestinationPath = [SystemUtils]::GetAbsolutePath((Join-Path -Path $OutPath -ChildPath $entry.FullName))
             $DestinationDir = Split-Path -Parent $DestinationPath
-            $OverrideFiles = $OverrideNonVersionedFiles -or (-not (Test-Path $DestinationPath))
-            if ((-not $DestinationPath.EndsWith("\")) -and $OverrideFiles) {
+            $OverrideFiles = $OverrideNonVersionedFiles -or (!(Test-Path $DestinationPath))
+            if ((!$DestinationPath.EndsWith("\")) -and $OverrideFiles) {
               New-Item -ItemType Directory -Force -Path $DestinationDir | Out-Null
               [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $DestinationPath, $OverrideNonVersionedFiles)
             }
@@ -563,7 +563,7 @@ begin {
 
   class VersionResolver {
     static [string] ParseJsonFile([string]$JSonFile) {
-      if (-not (Test-Path $JSonFile)) { throw [DotnetInstallException]::new("Unable to find '$JSonFile'") }
+      if (!(Test-Path $JSonFile)) { throw [DotnetInstallException]::new("Unable to find '$JSonFile'") }
       try {
         $JSonContent = Get-Content($JSonFile) -Raw | ConvertFrom-Json | Select-Object -expand "sdk" -ErrorAction SilentlyContinue
       } catch {
@@ -596,7 +596,7 @@ begin {
       if ($Runtime -eq "dotnet") { $VersionFileUrl = "$AzureFeed/Runtime/$Channel/latest.version" }
       elseif ($Runtime -eq "aspnetcore") { $VersionFileUrl = "$AzureFeed/aspnetcore/Runtime/$Channel/latest.version" }
       elseif ($Runtime -eq "windowsdesktop") { $VersionFileUrl = "$AzureFeed/WindowsDesktop/$Channel/latest.version" }
-      elseif (-not $Runtime) { $VersionFileUrl = "$AzureFeed/Sdk/$Channel/latest.version" }
+      elseif (!$Runtime) { $VersionFileUrl = "$AzureFeed/Sdk/$Channel/latest.version" }
 
       Write-LogEntry -Level Debug -Message ("Constructed latest.version URL: $VersionFileUrl")
       $Response = [HttpUtils]::GetHttpResponse($VersionFileUrl, $false, $false, $false, $Ctx)
@@ -645,7 +645,7 @@ begin {
 
       $pvFileName = 'productVersion.txt'
       if ($Flattened) {
-        if (-not $Runtime) { $pvFileName = 'sdk-productVersion.txt' }
+        if (!$Runtime) { $pvFileName = 'sdk-productVersion.txt' }
         elseif ($Runtime -eq "dotnet") { $pvFileName = 'runtime-productVersion.txt' }
         else { $pvFileName = "$Runtime-productVersion.txt" }
       }
@@ -656,7 +656,7 @@ begin {
         elseif ($Runtime -eq "windowsdesktop") {
           if ($null -ne $majorVersion -and $majorVersion -ge 5) { return "$AzureFeed/WindowsDesktop/$SpecificVersion/$pvFileName" }
           return "$AzureFeed/Runtime/$SpecificVersion/$pvFileName"
-        } elseif (-not $Runtime) { return "$AzureFeed/Sdk/$SpecificVersion/$pvFileName" }
+        } elseif (!$Runtime) { return "$AzureFeed/Sdk/$SpecificVersion/$pvFileName" }
       }
       return $DownloadLink.Substring(0, $DownloadLink.LastIndexOf("/")) + "/$pvFileName"
     }
@@ -672,7 +672,7 @@ begin {
       $akaMsLink = "https://aka.ms/dotnet"
       if ($Internal) { $akaMsLink += "/internal" }
       $akaMsLink += "/$Channel"
-      if (-not [string]::IsNullOrEmpty($Quality)) { $akaMsLink += "/$Quality" }
+      if (![string]::IsNullOrEmpty($Quality)) { $akaMsLink += "/$Quality" }
       $akaMsLink += "/$Product-win-$Architecture.zip"
 
       Write-LogEntry -Level Debug -Message ("Constructed aka.ms link: '$akaMsLink'.")
@@ -689,7 +689,7 @@ begin {
             $akaMsLink = $downloadLink
             continue
           } catch { return $null }
-        } elseif ((($Response.StatusCode -lt 300) -or ($Response.StatusCode -ge 400)) -and (-not [string]::IsNullOrEmpty($downloadLink))) {
+        } elseif ((($Response.StatusCode -lt 300) -or ($Response.StatusCode -ge 400)) -and (![string]::IsNullOrEmpty($downloadLink))) {
           return $downloadLink
         }
         return $null
@@ -700,7 +700,7 @@ begin {
     static [DownloadLinkInfo] GetAkaMsLinkAndVersion([InstallContext]$Ctx) {
       $link = [UrlResolver]::GetAkaMSDownloadLink($Ctx.NormalizedChannel, $Ctx.NormalizedQuality, $Ctx.Internal, $Ctx.NormalizedProduct, $Ctx.CLIArchitecture, $Ctx)
       if ([string]::IsNullOrEmpty($link)) {
-        if (-not [string]::IsNullOrEmpty($Ctx.NormalizedQuality)) {
+        if (![string]::IsNullOrEmpty($Ctx.NormalizedQuality)) {
           Write-LogEntry -Level Error -Message ("Failed to locate the latest version in channel '$($Ctx.NormalizedChannel)' with '$($Ctx.NormalizedQuality)' quality.")
           throw [DotnetInstallException]::new("aka.ms link resolution failure")
         }
@@ -726,8 +726,8 @@ begin {
 
     static [string[]] GetFeedsToUse([InstallContext]$Ctx) {
       $feeds = @("https://builds.dotnet.microsoft.com/dotnet", "https://ci.dot.net/public")
-      if (-not [string]::IsNullOrEmpty($Ctx.AzureFeed)) { $feeds = @($Ctx.AzureFeed) }
-      if (-not [string]::IsNullOrEmpty($Ctx.UncachedFeed)) { $feeds = @($Ctx.UncachedFeed) }
+      if (![string]::IsNullOrEmpty($Ctx.AzureFeed)) { $feeds = @($Ctx.AzureFeed) }
+      if (![string]::IsNullOrEmpty($Ctx.UncachedFeed)) { $feeds = @($Ctx.UncachedFeed) }
       return $feeds
     }
   }
@@ -738,7 +738,7 @@ begin {
         $msg = "Provide credentials via -FeedCredential parameter."
         if ($Ctx.DryRun) { Write-LogEntry -Level Warn -Message ($msg) } else { throw [DotnetInstallException]::new($msg) }
       }
-      if (-not [string]::IsNullOrWhitespace($Ctx.FeedCredential) -and $Ctx.FeedCredential[0] -ne '?') {
+      if (![string]::IsNullOrWhitespace($Ctx.FeedCredential) -and $Ctx.FeedCredential[0] -ne '?') {
         $Ctx.FeedCredential = "?" + $Ctx.FeedCredential
       }
     }
@@ -822,19 +822,19 @@ begin {
 
     static [void] Run([InstallContext]$Ctx) {
       Write-LogEntry -Level Debug -Message ("Note that the intended use of this script is for Continuous Integration (CI) scenarios...")
-      if ($Ctx.SharedRuntime -and (-not $Ctx.Runtime)) { $Ctx.Runtime = "dotnet" }
+      if ($Ctx.SharedRuntime -and (!$Ctx.Runtime)) { $Ctx.Runtime = "dotnet" }
       $OverrideNonVersionedFiles = !$Ctx.SkipNonVersionedFiles
 
       [PerfHelper]::MeasureAction("Product discovery", { [DotnetInstall]::NormalizeParameters($Ctx) })
 
       $Ctx.InstallRoot = if ($Ctx.InstallDir -eq "<auto>") { [FileSystemUtils]::GetUserSharePath() } else { $Ctx.InstallDir }
-      if (-not [FileSystemUtils]::TestUserWriteAccess($Ctx.InstallRoot)) {
+      if (![FileSystemUtils]::TestUserWriteAccess($Ctx.InstallRoot)) {
         Write-LogEntry -Level Error -Message ("The current user doesn't have write access to the installation root '$($Ctx.InstallRoot)'")
         throw [DotnetInstallException]::new("Access Denied")
       }
       Write-LogEntry -Level Debug -Message ("InstallRoot: $($Ctx.InstallRoot)")
 
-      if ($Ctx.Version.ToLowerInvariant() -ne "latest" -and -not [string]::IsNullOrEmpty($Ctx.Quality)) {
+      if ($Ctx.Version.ToLowerInvariant() -ne "latest" -and ![string]::IsNullOrEmpty($Ctx.Quality)) {
         throw [DotnetInstallException]::new("Quality and Version options are not allowed to be specified simultaneously.")
       }
 
@@ -845,7 +845,7 @@ begin {
         $akaLinkInfo = [UrlResolver]::GetAkaMsLinkAndVersion($Ctx)
         if ($null -ne $akaLinkInfo) {
           $DownloadLinks += $akaLinkInfo
-          if (-not $Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $akaLinkInfo.EffectiveVersion)) {
+          if (!$Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $akaLinkInfo.EffectiveVersion)) {
             Write-LogEntry -Level Info -Message ("$($Ctx.AssetName) with version '$($akaLinkInfo.EffectiveVersion)' is already installed.")
             [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath)
             return
@@ -858,7 +858,7 @@ begin {
         $feeds = [UrlResolver]::GetFeedsToUse($Ctx)
         foreach ($feed in $feeds) {
           try {
-            $SpecificVersion = if (-not $Ctx.JSonFile) {
+            $SpecificVersion = if (!$Ctx.JSonFile) {
               if ($Ctx.Version.ToLowerInvariant() -eq "latest") {
                 ([VersionResolver]::GetFromLatestVersionFile($feed, $Ctx.Channel, $Ctx.Runtime, $Ctx)).Version
               } else { $Ctx.Version }
@@ -881,11 +881,11 @@ begin {
             $DownloadLinks += $infoPrimary
 
             # Build legacy download link
-            $LegacyLink = if (-not $Ctx.Runtime) { "$feed/Sdk/$SpecificVersion/dotnet-dev-win-$($Ctx.CLIArchitecture).$SpecificVersion.zip" }
+            $LegacyLink = if (!$Ctx.Runtime) { "$feed/Sdk/$SpecificVersion/dotnet-dev-win-$($Ctx.CLIArchitecture).$SpecificVersion.zip" }
             elseif ($Ctx.Runtime -eq "dotnet") { "$feed/Runtime/$SpecificVersion/dotnet-win-$($Ctx.CLIArchitecture).$SpecificVersion.zip" }
             else { $null }
 
-            if (-not [string]::IsNullOrEmpty($LegacyLink)) {
+            if (![string]::IsNullOrEmpty($LegacyLink)) {
               $infoLegacy = [DownloadLinkInfo]::new()
               $infoLegacy.DownloadLink = $LegacyLink
               $infoLegacy.SpecificVersion = $SpecificVersion
@@ -894,7 +894,7 @@ begin {
               $DownloadLinks += $infoLegacy
             }
 
-            if (-not $Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $ProductVersion)) {
+            if (!$Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $ProductVersion)) {
               Write-LogEntry -Level Info -Message ("$($Ctx.AssetName) with version '$ProductVersion' is already installed.")
               [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath)
               return
@@ -932,7 +932,7 @@ begin {
         }
       }
 
-      if (-not $DownloadSucceeded) {
+      if (!$DownloadSucceeded) {
         foreach ($err in $ErrorMessages) { Write-LogEntry -Level Error -Message ($err) }
         throw [DotnetInstallException]::new("Could not find `"$($Ctx.AssetName)`" with version = $($DownloadLinks[0].EffectiveVersion)")
       }
@@ -945,15 +945,15 @@ begin {
         $ReleaseVersion = $DownloadedLink.EffectiveVersion.Split("-")[0]
         $isAssetInstalled = [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $ReleaseVersion)
       }
-      if (-not $isAssetInstalled) {
+      if (!$isAssetInstalled) {
         $isAssetInstalled = [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $DownloadedLink.EffectiveVersion)
       }
 
-      if (-not $isAssetInstalled) {
+      if (!$isAssetInstalled) {
         throw [DotnetInstallException]::new("`"$($Ctx.AssetName)`" with version = $($DownloadedLink.EffectiveVersion) failed to install with an unknown error.")
       }
 
-      if (-not $Ctx.KeepZip) { [FileSystemUtils]::SafeRemoveFile($Ctx.ZipPath) }
+      if (!$Ctx.KeepZip) { [FileSystemUtils]::SafeRemoveFile($Ctx.ZipPath) }
       [PerfHelper]::MeasureAction("Setting up shell environment", { [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath) })
 
       Write-LogEntry -Level Info -Message ("Note that the script does not ensure your Windows version is supported during the installation.")
