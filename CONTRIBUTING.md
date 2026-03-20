@@ -1,26 +1,36 @@
-# Contributing
+# Contributing to dotnet-install-script
 
-```PowerShell
-git clone https://github.com/chadnpc/dotnet-install-script.git
-cd dotnet-install-script
-```
+We welcome contributions to the `dotnet-install-script` project!
 
-```PowerShell
-cp .env.example .env
-```
+## Getting Started
 
-make your changes, then run the test scripts
+1. **Clone the repository:**
+   ```PowerShell
+   git clone https://github.com/chadnpc/dotnet-install-script.git
+   cd dotnet-install-script
+   ```
 
-```PowerShell
-test.ps1
-```
+2. **Environment Setup (Optional):**
+   ```PowerShell
+   cp .env.example .env
+   ```
 
-If the tests pass, then you can commit your changes.
+## Testing
 
-Create a pull request.
+Before submitting your changes, ensure that all tests pass. We use [Pester](https://pester.dev/) for testing.
 
-# publish
+1. **Run the tests locally:**
+   ```PowerShell
+   .\test.ps1
+   ```
 
+   This script will invoke Pester and run all `.Tests.ps1` files in the `Tests` directory.
+
+2. **If all tests pass**, you're ready to commit and create a pull request!
+
+## Publishing (Maintainers Only)
+
+To publish a new version of the module:
 ```PowerShell
 Publish-Module -Path BuildOutput/dotnetInstall.xconvert/0.1.3 -NuGetApiKey $env:NUGET_API_KEY
 ```
