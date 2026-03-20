@@ -1,7 +1,8 @@
 # dotnet-install-script
 
 A custom cross-platform compatible PowerShell script to install the .NET SDK and Runtime.
-This script is intended primarily for Continuous Integration (CI) scenarios where you need to install without user interaction, without admin rights, and where it doesn't need to persist.
+
+This script is intended primarily for CI scenarios where you need to install without user interaction, without admin rights, and where it doesn't need to persist.
 
 ## Usage
 
@@ -27,7 +28,7 @@ Install-Script -Name Install-Dotnet -Scope CurrentUser -Force
 For more help run
 
 ```PowerShell
-Get-Help .\Install-Dotnet.ps1 -Full
+Get-Help Install-Dotnet -Examples
 ```
 
 ## Examples
