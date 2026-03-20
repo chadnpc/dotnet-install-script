@@ -169,7 +169,7 @@ begin {
 
 
   # Modules and edition requirements not actually needed  for now
-  #   Requires -Modules cliHelper.logger
+  #Requires -Modules cliHelper.logger
   # Requires -RunAsAdministrator was removed because it blocked non-admin execution.
 
   if ($Help) {
