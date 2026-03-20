@@ -16,6 +16,7 @@ begin {
   # resolve requirements
   $requiredmodules = @(
     'Pester',
+    'clihelper.env',
     'clihelper.logger'
   )
 
