@@ -10,23 +10,35 @@ param (
   [Alias('Tests')][string]$TestsPath = [IO.Path]::Combine($PSScriptRoot, 'Tests')
 )
 
-$ErrorActionPreference = "Stop"
+begin {
+  $originalErrorActionPreference = $ErrorActionPreference
+  $ErrorActionPreference = "Stop"
+  # resolve requirements
+  $requiredmodules = @(
+    'Pester',
+    'clihelper.logger'
+  )
 
-if (-not (Get-Module -ListAvailable Pester)) {
-  Write-Warning "Pester is not installed. Installing Pester for testing..."
-  Install-Module Pester -Force -SkipPublisherCheck -Scope CurrentUser
+  foreach ($module in $requiredmodules) {
+    if (!(Get-Module -ListAvailable $module -ea Ignore)) {
+      Write-Warning "$module is not installed. Installing $module for testing..."
+      Install-Module $module -Force -Scope CurrentUser
+    }
+    Import-Module $module -Verbose:$false -Force
+  }
+}
+process {
+  Write-Host "Running Pester tests from '$TestsPath'..." -ForegroundColor Cyan
+
+  $TestResults = Invoke-Pester -Path $TestsPath -OutputFormat NUnitXml -OutputFile ([IO.Path]::Combine($TestsPath, "results.xml")) -PassThru
+
+  if ($TestResults.FailedCount -gt 0) {
+    Write-Error "Tests failed. Look at results.xml for more details."
+  }
 }
 
-Import-Module Pester -Verbose:$false
-
-Write-Host "Running Pester tests from '$TestsPath'..." -ForegroundColor Cyan
-
-$TestResults = Invoke-Pester -Path $TestsPath -OutputFormat NUnitXml -OutputFile ([IO.Path]::Combine($TestsPath, "results.xml")) -PassThru
-
-if ($TestResults.FailedCount -gt 0) {
-  Write-Error "Tests failed. Look at results.xml for more details."
-  exit 1
+end {
+  $ErrorActionPreference = $originalErrorActionPreference
+  Write-Host "All tests ran successfully!" -ForegroundColor Green
+  exit 0
 }
-
-Write-Host "All tests ran successfully!" -ForegroundColor Green
-exit 0
