@@ -167,8 +167,6 @@ begin {
   $ErrorActionPreference = "Stop"
   $ProgressPreference = "SilentlyContinue"
 
-
-  # Modules and edition requirements not actually needed  for now
   #Requires -Modules cliHelper.logger
   # Requires -RunAsAdministrator was removed because it blocked non-admin execution.
 
@@ -176,6 +174,14 @@ begin {
     Get-Help $PSCommandPath -Examples
     exit
   }
+  $logger = [Logger]::new()
+  if ($VerbosePreference -ne 'SilentlyContinue') {
+    $logger.MinLevel = [LogLevel]::Debug
+  } else {
+    $logger.MinLevel = [LogLevel]::Info
+  }
+  $logger.AddLogAppender([ConsoleAppender]@{ })
+  $logger.set_default()
 
   enum ArchitectureType { Auto; Amd64; X64; X86; Arm64; Arm }
   enum RuntimeProduct { DotNet; AspNetCore; WindowsDesktop; Sdk }
@@ -194,31 +200,10 @@ begin {
       $this.ErrorMessage = $errorMsg
     }
   }
-
-  class ScriptLogger {
-    static [void] Say([string]$str) {
-      try { Write-Host "dotnet-install: $str" }
-      catch { Write-Output "dotnet-install: $str" }
-    }
-
-    static [void] SayWarning([string]$str) {
-      try { Write-Warning "dotnet-install: $str" }
-      catch { Write-Output "dotnet-install: Warning: $str" }
-    }
-
-    static [void] SayError([string]$str) {
-      try { $(Get-Variable Host).Value.UI.WriteErrorLine("dotnet-install: $str") }
-      catch { Write-Output "dotnet-install: Error: $str" }
-    }
-
-    static [void] SayVerbose([string]$str) {
-      try { Write-Verbose "dotnet-install: $str" }
-      catch { Write-Output "dotnet-install: $str" }
-    }
-
+  class PerfHelper {
     static [void] MeasureAction([string]$name, [scriptblock]$block) {
       $time = Measure-Command $block
-      [ScriptLogger]::SayVerbose("Action '$name' took $($time.TotalSeconds) seconds")
+      Write-LogEntry -Level Debug -Message ("Action '$name' took $($time.TotalSeconds) seconds")
     }
   }
 
@@ -308,13 +293,13 @@ begin {
       if (-not $NoPath) {
         $SuffixedBinPath = "$BinPath;"
         if (-not $env:path.Contains($SuffixedBinPath)) {
-          [ScriptLogger]::Say("Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process.")
+          Write-LogEntry -Level Info -Message ("Adding to current process PATH: `"$BinPath`". Note: This change will not be visible if PowerShell was run as a child process.")
           $env:path = $SuffixedBinPath + $env:path
         } else {
-          [ScriptLogger]::SayVerbose("Current process PATH already contains `"$BinPath`"")
+          Write-LogEntry -Level Debug -Message ("Current process PATH already contains `"$BinPath`"")
         }
       } else {
-        [ScriptLogger]::Say("Binaries of dotnet can be found in $BinPath")
+        Write-LogEntry -Level Info -Message ("Binaries of dotnet can be found in $BinPath")
       }
     }
   }
@@ -367,7 +352,7 @@ begin {
               }
             } catch {
               $ProxyAddress = $null
-              [ScriptLogger]::SayVerbose("Exception ignored: $_.Exception.Message - moving forward...")
+              Write-LogEntry -Level Debug -Message ("Exception ignored: $_.Exception.Message - moving forward...")
             }
           }
 
@@ -422,11 +407,11 @@ begin {
         $response = Invoke-WebRequest -UseBasicParsing -Uri $zipUri -Method Head
         $fileSize = $response.Headers["Content-Length"]
         if (![string]::IsNullOrEmpty($fileSize)) {
-          [ScriptLogger]::Say("Remote file $zipUri size is $fileSize bytes.")
+          Write-LogEntry -Level Info -Message ("Remote file $zipUri size is $fileSize bytes.")
           return $fileSize
         }
       } catch {
-        [ScriptLogger]::SayVerbose("Content-Length header was not extracted for $zipUri.")
+        Write-LogEntry -Level Debug -Message ("Content-Length header was not extracted for $zipUri.")
       }
       return $null
     }
@@ -435,26 +420,26 @@ begin {
       try {
         $remoteFileSize = [HttpUtils]::GetRemoteFileSize($SourceUri, $Ctx)
         $fileSize = [long](Get-Item $LocalFileOutPath).Length
-        [ScriptLogger]::Say("Downloaded file $SourceUri size is $fileSize bytes.")
+        Write-LogEntry -Level Info -Message ("Downloaded file $SourceUri size is $fileSize bytes.")
 
         if (![string]::IsNullOrEmpty($remoteFileSize) -and $fileSize -gt 0) {
           if ($remoteFileSize -ne $fileSize) {
-            [ScriptLogger]::Say("The remote and local file sizes are not equal. Remote file size is $remoteFileSize bytes and local size is $fileSize bytes. The local package may be corrupted.")
+            Write-LogEntry -Level Info -Message ("The remote and local file sizes are not equal. Remote file size is $remoteFileSize bytes and local size is $fileSize bytes. The local package may be corrupted.")
           } else {
-            [ScriptLogger]::Say("The remote and local file sizes are equal.")
+            Write-LogEntry -Level Info -Message ("The remote and local file sizes are equal.")
           }
         } else {
-          [ScriptLogger]::Say("Either downloaded or local package size can not be measured. One of them may be corrupted.")
+          Write-LogEntry -Level Info -Message ("Either downloaded or local package size can not be measured. One of them may be corrupted.")
         }
       } catch {
-        [ScriptLogger]::Say("Either downloaded or local package size can not be measured. One of them may be corrupted.")
+        Write-LogEntry -Level Info -Message ("Either downloaded or local package size can not be measured. One of them may be corrupted.")
       }
     }
 
     static [void] DownloadFile([string]$Source, [string]$OutPath, [InstallContext]$Ctx) {
       if ($Source -notlike "http*") {
         $absSource = [SystemUtils]::GetAbsolutePath($Source)
-        [ScriptLogger]::Say("Copying file from $absSource to $OutPath")
+        Write-LogEntry -Level Info -Message ("Copying file from $absSource to $OutPath")
         Copy-Item $absSource $OutPath
         return
       }
@@ -478,7 +463,7 @@ begin {
       $InstallRoot = $env:DOTNET_INSTALL_DIR
       if (!$InstallRoot) { $InstallRoot = "$env:LocalAppData\Microsoft\dotnet" }
       elseif ($InstallRoot -like "$env:ProgramFiles\dotnet\?*") {
-        [ScriptLogger]::SayWarning("The install root specified by DOTNET_INSTALL_DIR points to a sub folder of $env:ProgramFiles\dotnet. It is better to keep aligned with .NET SDK installer.")
+        Write-LogEntry -Level Warn -Message ("The install root specified by DOTNET_INSTALL_DIR points to a sub folder of $env:ProgramFiles\dotnet. It is better to keep aligned with .NET SDK installer.")
       }
       return $InstallRoot
     }
@@ -498,14 +483,14 @@ begin {
     static [void] PrepareInstallDirectory([string]$InstallRoot) {
       $diskSpaceWarning = "Failed to check the disk space. Installation will continue, but it may fail if you do not have enough disk space."
       if ($(Get-Variable PSVersionTable).Value.PSVersion.Major -lt 7) {
-        [ScriptLogger]::SayVerbose($diskSpaceWarning)
+        Write-LogEntry -Level Debug -Message ($diskSpaceWarning)
         return
       }
 
       New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
       $installDrive = $((Get-Item $InstallRoot -Force).PSDrive.Name)
       $diskInfo = $null
-      try { $diskInfo = Get-PSDrive -Name $installDrive } catch { [ScriptLogger]::SayWarning($diskSpaceWarning) }
+      try { $diskInfo = Get-PSDrive -Name $installDrive } catch { Write-LogEntry -Level Warn -Message ($diskSpaceWarning) }
 
       if (($null -ne $diskInfo) -and ($diskInfo.Free / 1MB -le 100)) {
         throw [DotnetInstallException]::new("There is not enough disk space on drive ${installDrive}:")
@@ -514,7 +499,7 @@ begin {
 
     static [bool] IsDotnetPackageInstalled([string]$InstallRoot, [string]$RelativePath, [string]$SpecificVersion) {
       $DotnetPackagePath = Join-Path -Path (Join-Path -Path $InstallRoot -ChildPath $RelativePath) -ChildPath $SpecificVersion
-      [ScriptLogger]::SayVerbose("Is-Dotnet-Package-Installed: DotnetPackagePath=$DotnetPackagePath")
+      Write-LogEntry -Level Debug -Message ("Is-Dotnet-Package-Installed: DotnetPackagePath=$DotnetPackagePath")
       return (Test-Path $DotnetPackagePath -PathType Container)
     }
 
@@ -534,7 +519,7 @@ begin {
         }
       }
       $ret = $ret | Sort-Object | Get-Unique
-      [ScriptLogger]::SayVerbose("Directories to unpack: $(($ret | ForEach-Object { "$_" }) -join ';')")
+      Write-LogEntry -Level Debug -Message ("Directories to unpack: $(($ret | ForEach-Object { "$_" }) -join ';')")
       return $ret
     }
 
@@ -568,10 +553,10 @@ begin {
       try {
         if (Test-Path $Path) {
           Remove-Item $Path -Force
-          [ScriptLogger]::SayVerbose("The temporary file `"$Path`" was removed.")
+          Write-LogEntry -Level Debug -Message ("The temporary file `"$Path`" was removed.")
         }
       } catch {
-        [ScriptLogger]::SayWarning("Failed to remove the temporary file: `"$Path`", remove it manually.")
+        Write-LogEntry -Level Warn -Message ("Failed to remove the temporary file: `"$Path`", remove it manually.")
       }
     }
   }
@@ -582,7 +567,7 @@ begin {
       try {
         $JSonContent = Get-Content($JSonFile) -Raw | ConvertFrom-Json | Select-Object -expand "sdk" -ErrorAction SilentlyContinue
       } catch {
-        [ScriptLogger]::SayError("Json file unreadable: '$JSonFile'")
+        Write-LogEntry -Level Error -Message ("Json file unreadable: '$JSonFile'")
         throw
       }
 
@@ -592,7 +577,7 @@ begin {
           foreach ($prop in $JSonContent.PSObject.Properties) {
             if ($prop.Name -eq "version") {
               $Version = $prop.Value
-              [ScriptLogger]::SayVerbose("Version = $Version")
+              Write-LogEntry -Level Debug -Message ("Version = $Version")
             }
           }
         } catch {
@@ -613,7 +598,7 @@ begin {
       elseif ($Runtime -eq "windowsdesktop") { $VersionFileUrl = "$AzureFeed/WindowsDesktop/$Channel/latest.version" }
       elseif (-not $Runtime) { $VersionFileUrl = "$AzureFeed/Sdk/$Channel/latest.version" }
 
-      [ScriptLogger]::SayVerbose("Constructed latest.version URL: $VersionFileUrl")
+      Write-LogEntry -Level Debug -Message ("Constructed latest.version URL: $VersionFileUrl")
       $Response = [HttpUtils]::GetHttpResponse($VersionFileUrl, $false, $false, $false, $Ctx)
       $VersionText = $Response.Content.ReadAsStringAsync().Result
       $Data = -split $VersionText
@@ -631,15 +616,15 @@ begin {
       )
 
       foreach ($url in $urls) {
-        [ScriptLogger]::SayVerbose("Checking for the existence of $url")
+        Write-LogEntry -Level Debug -Message ("Checking for the existence of $url")
         try {
           $response = [HttpUtils]::GetHttpResponse($url, $false, $false, $false, $Ctx)
           if ($response.StatusCode -eq 200) {
             $pv = $response.Content.ReadAsStringAsync().Result.Trim()
-            if ($pv -ne $SpecificVersion) { [ScriptLogger]::Say("Using alternate version $pv found in $url") }
+            if ($pv -ne $SpecificVersion) { Write-LogEntry -Level Info -Message ("Using alternate version $pv found in $url") }
             return $pv
           }
-        } catch { [ScriptLogger]::SayVerbose("Could not read productVersion.txt at $url") }
+        } catch { Write-LogEntry -Level Debug -Message ("Could not read productVersion.txt at $url") }
       }
 
       if ([string]::IsNullOrEmpty($DownloadLink)) { return $SpecificVersion }
@@ -648,7 +633,7 @@ begin {
       $filenameParts = $filename.Split('-')
       if ($filenameParts.Length -gt 2) {
         $pv = $filenameParts[2]
-        [ScriptLogger]::SayVerbose("Extracted product version '$pv' from download link '$DownloadLink'.")
+        Write-LogEntry -Level Debug -Message ("Extracted product version '$pv' from download link '$DownloadLink'.")
         return $pv
       }
       return $SpecificVersion
@@ -681,7 +666,7 @@ begin {
     static [string] GetAkaMSDownloadLink([string]$Channel, [string]$Quality, [bool]$Internal, [string]$Product, [string]$Architecture, [InstallContext]$Ctx) {
       if (![string]::IsNullOrEmpty($Quality) -and ($Channel -in "LTS", "STS")) {
         $Quality = ""
-        [ScriptLogger]::SayWarning("Specifying quality for STS or LTS channel is not supported, the quality will be ignored.")
+        Write-LogEntry -Level Warn -Message ("Specifying quality for STS or LTS channel is not supported, the quality will be ignored.")
       }
 
       $akaMsLink = "https://aka.ms/dotnet"
@@ -690,7 +675,7 @@ begin {
       if (-not [string]::IsNullOrEmpty($Quality)) { $akaMsLink += "/$Quality" }
       $akaMsLink += "/$Product-win-$Architecture.zip"
 
-      [ScriptLogger]::SayVerbose("Constructed aka.ms link: '$akaMsLink'.")
+      Write-LogEntry -Level Debug -Message ("Constructed aka.ms link: '$akaMsLink'.")
       $downloadLink = $null
 
       for ($maxRedirections = 9; $maxRedirections -ge 0; $maxRedirections--) {
@@ -716,7 +701,7 @@ begin {
       $link = [UrlResolver]::GetAkaMSDownloadLink($Ctx.NormalizedChannel, $Ctx.NormalizedQuality, $Ctx.Internal, $Ctx.NormalizedProduct, $Ctx.CLIArchitecture, $Ctx)
       if ([string]::IsNullOrEmpty($link)) {
         if (-not [string]::IsNullOrEmpty($Ctx.NormalizedQuality)) {
-          [ScriptLogger]::SayError("Failed to locate the latest version in channel '$($Ctx.NormalizedChannel)' with '$($Ctx.NormalizedQuality)' quality.")
+          Write-LogEntry -Level Error -Message ("Failed to locate the latest version in channel '$($Ctx.NormalizedChannel)' with '$($Ctx.NormalizedQuality)' quality.")
           throw [DotnetInstallException]::new("aka.ms link resolution failure")
         }
         return $null
@@ -726,7 +711,7 @@ begin {
       if ($pathParts.Length -ge 2) {
         $SpecificVersion = $pathParts[$pathParts.Length - 2]
       } else {
-        [ScriptLogger]::SayError("Failed to extract the version from download link '$link'.")
+        Write-LogEntry -Level Error -Message ("Failed to extract the version from download link '$link'.")
         return $null
       }
 
@@ -751,7 +736,7 @@ begin {
     static [void] ValidateFeedCredential([InstallContext]$Ctx) {
       if ($Ctx.Internal -and [string]::IsNullOrWhitespace($Ctx.FeedCredential)) {
         $msg = "Provide credentials via -FeedCredential parameter."
-        if ($Ctx.DryRun) { [ScriptLogger]::SayWarning($msg) } else { throw [DotnetInstallException]::new($msg) }
+        if ($Ctx.DryRun) { Write-LogEntry -Level Warn -Message ($msg) } else { throw [DotnetInstallException]::new($msg) }
       }
       if (-not [string]::IsNullOrWhitespace($Ctx.FeedCredential) -and $Ctx.FeedCredential[0] -ne '?') {
         $Ctx.FeedCredential = "?" + $Ctx.FeedCredential
@@ -774,7 +759,7 @@ begin {
       # Channel
       if ([string]::IsNullOrEmpty($Ctx.Channel)) { $Ctx.NormalizedChannel = "" }
       else {
-        if ($Ctx.Channel.Contains("Current")) { [ScriptLogger]::SayWarning('Value "Current" is deprecated. Use "STS" instead.') }
+        if ($Ctx.Channel.Contains("Current")) { Write-LogEntry -Level Warn -Message ('Value "Current" is deprecated. Use "STS" instead.') }
         switch ($Ctx.Channel.ToLowerInvariant()) {
           { $_ -eq "lts" } { $Ctx.NormalizedChannel = "LTS" }
           { $_ -in "sts", "current" } { $Ctx.NormalizedChannel = "STS" }
@@ -811,9 +796,9 @@ begin {
     }
 
     static [void] PrintDryRunOutput([InstallContext]$Ctx, [DownloadLinkInfo[]]$Links) {
-      [ScriptLogger]::Say("Payload URLs:")
+      Write-LogEntry -Level Info -Message ("Payload URLs:")
       for ($i = 0; $i -lt $Links.Count; $i++) {
-        [ScriptLogger]::Say("URL #$i - $($Links[$i].Type): $($Links[$i].DownloadLink)")
+        Write-LogEntry -Level Info -Message ("URL #$i - $($Links[$i].Type): $($Links[$i].DownloadLink)")
       }
 
       $SpecificVersion = $Links[0].SpecificVersion
@@ -829,25 +814,25 @@ begin {
       }
       if ($Ctx.Invocation.BoundParameters.ContainsKey("FeedCredential")) { $cmd += " -FeedCredential `"<feedCredential>`"" }
 
-      [ScriptLogger]::Say("Repeatable invocation: $cmd")
+      Write-LogEntry -Level Info -Message ("Repeatable invocation: $cmd")
       if ($SpecificVersion -ne $EffectiveVersion) {
-        [ScriptLogger]::Say("NOTE: Due to finding a version manifest with this runtime, it would actually install with version '$EffectiveVersion'")
+        Write-LogEntry -Level Info -Message ("NOTE: Due to finding a version manifest with this runtime, it would actually install with version '$EffectiveVersion'")
       }
     }
 
     static [void] Run([InstallContext]$Ctx) {
-      [ScriptLogger]::SayVerbose("Note that the intended use of this script is for Continuous Integration (CI) scenarios...")
+      Write-LogEntry -Level Debug -Message ("Note that the intended use of this script is for Continuous Integration (CI) scenarios...")
       if ($Ctx.SharedRuntime -and (-not $Ctx.Runtime)) { $Ctx.Runtime = "dotnet" }
       $OverrideNonVersionedFiles = !$Ctx.SkipNonVersionedFiles
 
-      [ScriptLogger]::MeasureAction("Product discovery", { [DotnetInstall]::NormalizeParameters($Ctx) })
+      [PerfHelper]::MeasureAction("Product discovery", { [DotnetInstall]::NormalizeParameters($Ctx) })
 
       $Ctx.InstallRoot = if ($Ctx.InstallDir -eq "<auto>") { [FileSystemUtils]::GetUserSharePath() } else { $Ctx.InstallDir }
       if (-not [FileSystemUtils]::TestUserWriteAccess($Ctx.InstallRoot)) {
-        [ScriptLogger]::SayError("The current user doesn't have write access to the installation root '$($Ctx.InstallRoot)'")
+        Write-LogEntry -Level Error -Message ("The current user doesn't have write access to the installation root '$($Ctx.InstallRoot)'")
         throw [DotnetInstallException]::new("Access Denied")
       }
-      [ScriptLogger]::SayVerbose("InstallRoot: $($Ctx.InstallRoot)")
+      Write-LogEntry -Level Debug -Message ("InstallRoot: $($Ctx.InstallRoot)")
 
       if ($Ctx.Version.ToLowerInvariant() -ne "latest" -and -not [string]::IsNullOrEmpty($Ctx.Quality)) {
         throw [DotnetInstallException]::new("Quality and Version options are not allowed to be specified simultaneously.")
@@ -861,7 +846,7 @@ begin {
         if ($null -ne $akaLinkInfo) {
           $DownloadLinks += $akaLinkInfo
           if (-not $Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $akaLinkInfo.EffectiveVersion)) {
-            [ScriptLogger]::Say("$($Ctx.AssetName) with version '$($akaLinkInfo.EffectiveVersion)' is already installed.")
+            Write-LogEntry -Level Info -Message ("$($Ctx.AssetName) with version '$($akaLinkInfo.EffectiveVersion)' is already installed.")
             [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath)
             return
           }
@@ -910,11 +895,11 @@ begin {
             }
 
             if (-not $Ctx.DryRun -and [FileSystemUtils]::IsDotnetPackageInstalled($Ctx.InstallRoot, $Ctx.DotnetPackageRelativePath, $ProductVersion)) {
-              [ScriptLogger]::Say("$($Ctx.AssetName) with version '$ProductVersion' is already installed.")
+              Write-LogEntry -Level Info -Message ("$($Ctx.AssetName) with version '$ProductVersion' is already installed.")
               [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath)
               return
             }
-          } catch { [ScriptLogger]::SayVerbose("Failed to acquire download links from feed $feed.") }
+          } catch { Write-LogEntry -Level Debug -Message ("Failed to acquire download links from feed $feed.") }
         }
       }
 
@@ -925,35 +910,35 @@ begin {
         return
       }
 
-      [ScriptLogger]::MeasureAction("Installation directory preparation", { [FileSystemUtils]::PrepareInstallDirectory($Ctx.InstallRoot) })
+      [PerfHelper]::MeasureAction("Installation directory preparation", { [FileSystemUtils]::PrepareInstallDirectory($Ctx.InstallRoot) })
 
       $DownloadSucceeded = $false
       $DownloadedLink = $null
       $ErrorMessages = @()
 
       foreach ($linkInfo in $DownloadLinks) {
-        [ScriptLogger]::SayVerbose("Downloading `"$($linkInfo.Type)`" link $($linkInfo.DownloadLink)")
+        Write-LogEntry -Level Debug -Message ("Downloading `"$($linkInfo.Type)`" link $($linkInfo.DownloadLink)")
         try {
-          [ScriptLogger]::MeasureAction("Package download", { [HttpUtils]::DownloadFile($linkInfo.DownloadLink, $Ctx.ZipPath, $Ctx) })
+          [PerfHelper]::MeasureAction("Package download", { [HttpUtils]::DownloadFile($linkInfo.DownloadLink, $Ctx.ZipPath, $Ctx) })
           $DownloadSucceeded = $true
           $DownloadedLink = $linkInfo
           break
         } catch {
           $StatusCode = if ($_.Exception -is [DownloadException]) { $_.Exception.StatusCode } else { 0 }
           $ErrMsg = if ($_.Exception -is [DownloadException]) { $_.Exception.ErrorMessage } else { $_.Exception.Message }
-          [ScriptLogger]::SayVerbose("Download failed. Status: $StatusCode. Msg: $ErrMsg")
+          Write-LogEntry -Level Debug -Message ("Download failed. Status: $StatusCode. Msg: $ErrMsg")
           $ErrorMessages += "Downloading from `"$($linkInfo.Type)`" link failed:`nUri: $($linkInfo.DownloadLink)`nStatusCode: $StatusCode`nError: $ErrMsg"
           [FileSystemUtils]::SafeRemoveFile($Ctx.ZipPath)
         }
       }
 
       if (-not $DownloadSucceeded) {
-        foreach ($err in $ErrorMessages) { [ScriptLogger]::SayError($err) }
+        foreach ($err in $ErrorMessages) { Write-LogEntry -Level Error -Message ($err) }
         throw [DotnetInstallException]::new("Could not find `"$($Ctx.AssetName)`" with version = $($DownloadLinks[0].EffectiveVersion)")
       }
 
-      [ScriptLogger]::Say("Extracting the archive.")
-      [ScriptLogger]::MeasureAction("Package extraction", { [FileSystemUtils]::ExtractDotnetPackage($Ctx.ZipPath, $Ctx.InstallRoot, $OverrideNonVersionedFiles) })
+      Write-LogEntry -Level Info -Message ("Extracting the archive.")
+      [PerfHelper]::MeasureAction("Package extraction", { [FileSystemUtils]::ExtractDotnetPackage($Ctx.ZipPath, $Ctx.InstallRoot, $OverrideNonVersionedFiles) })
 
       $isAssetInstalled = $false
       if ($DownloadedLink.EffectiveVersion -match "rtm" -or $DownloadedLink.EffectiveVersion -match "servicing") {
@@ -969,11 +954,11 @@ begin {
       }
 
       if (-not $Ctx.KeepZip) { [FileSystemUtils]::SafeRemoveFile($Ctx.ZipPath) }
-      [ScriptLogger]::MeasureAction("Setting up shell environment", { [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath) })
+      [PerfHelper]::MeasureAction("Setting up shell environment", { [SystemUtils]::PrependToPath($Ctx.InstallRoot, $Ctx.NoPath) })
 
-      [ScriptLogger]::Say("Note that the script does not ensure your Windows version is supported during the installation.")
-      [ScriptLogger]::Say("Installed version is $($DownloadedLink.EffectiveVersion)")
-      [ScriptLogger]::Say("Installation finished")
+      Write-LogEntry -Level Info -Message ("Note that the script does not ensure your Windows version is supported during the installation.")
+      Write-LogEntry -Level Info -Message ("Installed version is $($DownloadedLink.EffectiveVersion)")
+      Write-LogEntry -Level Info -Message ("Installation finished")
     }
   }
 }
@@ -1007,6 +992,7 @@ process {
 }
 
 end {
+  if ($null -ne [Logger]::Default) { [Logger]::Default.Dispose() }
   $ErrorActionPreference = $ogeap
   $ProgressPreference = $ogpap
 }
