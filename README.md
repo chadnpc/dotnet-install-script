@@ -7,11 +7,18 @@ This script is intended primarily for CI scenarios where you need to install wit
 ## Usage
 
 ```PowerShell
-# To install the script as a module/script
-Install-Script -Name Install-Dotnet -Scope CurrentUser -Force
+Install-PackageProvider -Name "NuGet" -Force
+Set-PSRepository -Name "PSGallery" -InstallationPolicy Trusted
 
-# Or use it directly by cloning the repo
-.\Install-Dotnet.ps1 -Channel LTS
+Install-Script -Name Install-Dotnet -Scope CurrentUser -Force
+```
+
+or just download it from github
+
+```PowerShell
+(iwr -UseBasicParsing -Verbose:$false -Uri https://github.com/chadnpc/dotnet-install-script/raw/refs/heads/main/Install-Dotnet.ps1).Content > ~/downloads/Install-Dotnet.ps1
+Unblock-File ~/downloads/Install-Dotnet.ps1
+~/downloads/Install-Dotnet.ps1 -Channel LTS
 ```
 
 ## Parameters
